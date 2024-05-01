@@ -45,26 +45,9 @@ class ProductListViewSet(ModelViewSet):
     serializer_class = ProductSerializer
     pagination_class = ProductPagination
 
-# =====================Pagination적용 전의 ProductList=============================
-# class ProductListAPIView(APIView):
-#     def get_permissions(self):
-#         if self.request.method == 'GET':
-#             self.permission_classes = []
-#         else:
-#             self.permission_classes = [IsAuthenticated, ]
-#         return [permission() for permission in self.permission_classes]
+    def perform_create(self, serializer):
+        serializer.save(author=self.request.user)
 
-#     def get(self, request):
-#         products = Product.objects.all()
-#         serializer = ProductSerializer(products, many=True)
-#         return Response(serializer.data)
-    
-#     def post(self, request):
-#         serializer = ProductSerializer(data=request.data)
-#         if serializer.is_valid(raise_exception=True):
-#             serializer.save()
-#         return Response(serializer.data)
-# ==========================================================
 
 class ProductDetailAPIView(APIView):
     permission_classes = [IsAuthenticated]
@@ -74,12 +57,18 @@ class ProductDetailAPIView(APIView):
 
     def put(self, request, product_id):
         product = self.get_object(product_id)
-        serializer = ProductSerializer(data=request.data, instance=product)
-        if serializer.is_valid(raise_exception=True):
-            serializer.save()
-            return Response(serializer.data)
+        if request.user == product.author:
+            serializer = ProductSerializer(data=request.data, instance=product)
+            if serializer.is_valid(raise_exception=True):
+                serializer.save()
+                return Response(serializer.data)
+        else:
+            return Response("권한이 없습니다.", status=status.HTTP_403_FORBIDDEN)
         
     def delete(self, request, product_id):
         product = self.get_object(product_id)
-        product.delete()
-        return Response(f"{product_id}번 상품 삭제완료")
+        if request.user == product.author:
+            product.delete()
+            return Response(f"{product_id}번 상품 삭제완료")
+        else:
+            return Response("권한이 없습니다.", status=status.HTTP_403_FORBIDDEN)
